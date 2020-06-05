@@ -11,7 +11,6 @@ module Lox
     attr_reader :source, :tokens
     attr_accessor :current, :start, :line
     def initialize(source)
-      puts "source: #{source}"
       @source = source
       @tokens = []
       @start = 0 # the first char in the current lexeme being scannes
@@ -88,7 +87,7 @@ module Lox
       when "\n"
         # For the new lines, we increment the line counter
         self.line += 1
-        puts 'NEW LINE'
+      # puts 'NEW LINE'
       # Literals
 
       # String Literals
@@ -109,7 +108,7 @@ module Lox
 
     def add_token(type, literal = nil)
       text = source[start...current]
-      puts "#{start}, #{current}, type:#{type} text: #{text} line:#{line}"
+      # puts "#{start}, #{current}, type:#{type} text: #{text} line:#{line}"
       tokens << Token.new(type, text, literal, line)
     end
 

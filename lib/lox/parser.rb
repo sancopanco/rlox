@@ -1,5 +1,15 @@
-# expression -> equality;
-# equality -> comparison ( ("!=" | "==") comparison )* ;
+
+## Expression grammer
+
+# expression     → equality ;
+# equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+# comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
+# addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
+# multiplication → unary ( ( "/" | "*" ) unary )* ;
+# unary          → ( "!" | "-" ) unary
+#                | primary ;
+# primary        → NUMBER | STRING | "false" | "true" | "nil"
+#                | "(" expression ")" ;
 
 # A recursive descent parser is a literal translation
 # of the grammar's rules into imperative code -- Each rule becames a function
@@ -41,6 +51,7 @@ module Lox
     # comparison > equality -- presedence
     # equality -> comparison ( ("!=" | "==") comparison )* ;
     # matches an equality operator or anything of higher precedence
+    # left-associates
     def equality
       expr = comparison
       # creates left-associative nested-tree of of binary operator nodes
@@ -56,6 +67,7 @@ module Lox
 
     # addition > comparison -- presedence
     # comparison -> addition ( (">" | ">=" | "<=" | "<") addition )* ;
+    # left-associates
     def comparison
       expr = addition
 
@@ -70,6 +82,7 @@ module Lox
 
     # multiplication > addition -- precedence
     # addition -> multiplication ( ("-" | "+") multiplication )* ;
+    # left-associates
     def addition
       expr = multiplication
 
@@ -84,6 +97,7 @@ module Lox
 
     # unary > multiplication -- precedence
     # multiplication -> unary ( ("/" | "*") unary )* ;
+    # left-associates
     def multiplication
       expr = unary
 
@@ -98,6 +112,7 @@ module Lox
 
     # unary > multiplication -- precedence
     # unary -> ("!" | "-") unary | primary
+    # right-associates
     def unary
       if match(TokenType::BANG, TokenType::MINUS)
         operator = previous
