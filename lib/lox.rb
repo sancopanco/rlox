@@ -1,7 +1,10 @@
 # There are two way you can run some code
 # 1. from the command line and give it a path to a file -- run_file
 # 2. run it interactively -- run_prompt
-require_relative 'scanner'
+require_relative 'lox/token_type'
+require_relative 'lox/token'
+require_relative 'lox/scanner'
+require_relative 'lox/parser'
 
 module Lox
   # to ensure that we don't try to execute code that has a known error
@@ -46,16 +49,28 @@ module Lox
   end
 
   def run(source)
-    scanner = Scanner.new(source)
+    scanner = Lox::Scanner.new(source)
     tokens = scanner.scan_tokens
-    tokens.each do |token|
-      p token
-    end
+    parser = Lox::Parser.new(tokens)
+    expression = parser.parse
+
+    # Stop if there is a syntax error
+    return if @had_error
+
+    ASTPrinter.new.print(expression)
   end
 
   # Syntax Error handling
   def error(line, message)
     report(line, '', message)
+  end
+
+  def error_token(token, message)
+    if token.type == TokenType::EOF
+      report(token.line, ' at end', message)
+    else
+      report(token.line, " at '#{token.lexeme}'", message)
+    end
   end
 
   # Tell users some syntax error occured on a given line
@@ -64,5 +79,3 @@ module Lox
     @had_error = true
   end
 end
-
-Lox.main
