@@ -3,7 +3,7 @@ require_relative '../lib/lox/scanner.rb'
 require_relative '../lib/lox/token_type'
 
 class TestScanner < Minitest::Test
-  def test_deneme
+  def test_scan_tokens
     source = 'var language = "lox";'
     scanner = Lox::Scanner.new(source)
     tokens = scanner.scan_tokens

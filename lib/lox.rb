@@ -5,11 +5,23 @@ require_relative 'lox/token_type'
 require_relative 'lox/token'
 require_relative 'lox/scanner'
 require_relative 'lox/parser'
+require_relative 'lox/interpreter'
 
 module Lox
   # to ensure that we don't try to execute code that has a known error
   # exit with a non-zero exit code
   @had_error = false
+  @had_runtime_error = false
+
+  def self.interpreter
+    @interpreter ||= Lox::Interpreter.new
+  end
+
+  # Runtime errors
+  def self.runtime_error(error)
+    puts "#{error.message} \n[line #{error.token.line}]"
+    @had_runtime_error = true
+  end
 
   module_function
 
@@ -26,13 +38,16 @@ module Lox
     end
   end
 
+  # Running the script from a file
   # Give it a path to a file, it reads the file and executes it
   def run_file(path)
     content = File.read(path)
     run(content)
     exit(65) if @had_error
+    exit(70) if @had_runtime_error # let the calling process know
   end
 
+  # REPL
   # It drops you into a prompt where you can enter
   # and execute code one line at a time
   # (print (eval (read)))
@@ -57,7 +72,8 @@ module Lox
     # Stop if there is a syntax error
     return if @had_error
 
-    ASTPrinter.new.print(expression)
+    # ASTPrinter.new.print(expression)
+    interpreter.interpret(expression)
   end
 
   # Syntax Error handling

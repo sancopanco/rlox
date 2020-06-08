@@ -1,23 +1,8 @@
+require_relative 'visitor'
 module Lox
-  module Visitor
-    # def visit(subject)
-    #   method_name = "visit_#{subject.class}".to_sym
-    #   send(method_name, subject)
-    # end
-
-    def visit_binary_expr(expr); end
-
-    def visit_grouping_expr; end
-
-    def visit_literal_expr; end
-
-    def visit_unary_expr; end
-
-    def accept(visitor); end
-  end
-
+  # Take in a syntax tree and recursively traverse it, build up a string
   class ASTPrinter
-    include Visitor
+    include Lox::Visitor
 
     def print(expr)
       expr.accept(self)

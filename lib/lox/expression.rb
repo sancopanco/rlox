@@ -31,6 +31,8 @@ module Lox
     end
   end
 
+  # A Grouping node has a reference to an inner node
+  # the expression contained inside the parantheses
   class Grouping < Expression
     attr_reader :expr
 
@@ -43,6 +45,8 @@ module Lox
     end
   end
 
+  # The leaves of an expression tree -- the atomic bits of syntax
+  # that all other expressions are composed of
   class Literal < Expression
     attr_reader :value
 

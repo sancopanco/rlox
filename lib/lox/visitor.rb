@@ -1,0 +1,18 @@
+module Lox
+  module Visitor
+    # def visit(subject)
+    #   method_name = "visit_#{subject.class}".to_sym
+    #   send(method_name, subject)
+    # end
+
+    def visit_binary_expr(expr_left, expr_right); end
+
+    def visit_grouping_expr(expr); end
+
+    def visit_literal_expr(expr); end
+
+    def visit_unary_expr(expr); end
+
+    def accept(visitor); end
+  end
+end
