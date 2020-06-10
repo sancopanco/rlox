@@ -1,9 +1,9 @@
-require_relative 'visitor'
 require_relative 'runtime_error'
 require_relative 'stmt/stmt'
+require_relative 'expr/expr'
 module Lox
   class Interpreter
-    include Lox::Visitor
+    include Lox::Expr::Visitor
     include Lox::Stmt::Visitor
 
     # Public API

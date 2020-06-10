@@ -24,7 +24,7 @@
 # Be fast
 # Report as many distinct errors as there are
 # Minimize cascaded errors
-require_relative 'expression'
+require_relative 'expr/expr'
 require_relative 'stmt/stmt'
 
 module Lox
@@ -105,7 +105,7 @@ module Lox
       while match(TokenType::GREATER, TokenType::GREATER_EQUAL, TokenType::LESS, TokenType::LESS_EQUAL)
         operator = previous
         right = addition
-        expr = Binary.new(expr, operator, right)
+        expr = Expr::Binary.new(expr, operator, right)
       end
 
       expr
@@ -120,7 +120,7 @@ module Lox
       while match(TokenType::MINUS, TokenType::PLUS)
         operator = previous
         right = multiplication
-        expr = Binary.new(expr, operator, right)
+        expr = Expr::Binary.new(expr, operator, right)
       end
 
       expr
@@ -135,7 +135,7 @@ module Lox
       while match(TokenType::SLASH, TokenType::STAR)
         operator = previous
         right = unary
-        expr = Binary.new(expr, operator, right)
+        expr = Expr::Binary.new(expr, operator, right)
       end
 
       expr
@@ -156,16 +156,16 @@ module Lox
     # highest precedence
     # primary -> NUMBER | STRING | "false" | "true" | "nil" | "(" expression ")" ;
     def primary
-      return Literal.new(false) if match(TokenType::FALSE)
-      return Literal.new(true) if match(TokenType::TRUE)
-      return Literal.new(nil) if match(TokenType::NIL)
-      return Literal.new(previous.literal) if match(TokenType::NUMBER, TokenType::STRING)
+      return Expr::Literal.new(false) if match(TokenType::FALSE)
+      return Expr::Literal.new(true) if match(TokenType::TRUE)
+      return Expr::Literal.new(nil) if match(TokenType::NIL)
+      return Expr::Literal.new(previous.literal) if match(TokenType::NUMBER, TokenType::STRING)
 
       if match(TokenType::LEFT_PAREN)
         expr = expression
         # After we match ( and parse exxpresion inside , we must find a ) token
         consume(TokenType::RIGHT_PAREN, "Expect ')' after expression")
-        return Grouping.new(expr)
+        return Expr::Grouping.new(expr)
       end
 
       # As the parser descends through the parsing methods for each grammer rule
