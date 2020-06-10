@@ -67,13 +67,13 @@ module Lox
     scanner = Lox::Scanner.new(source)
     tokens = scanner.scan_tokens
     parser = Lox::Parser.new(tokens)
-    expression = parser.parse
+    statements = parser.parse
 
     # Stop if there is a syntax error
     return if @had_error
 
     # ASTPrinter.new.print(expression)
-    interpreter.interpret(expression)
+    interpreter.interpret(statements)
   end
 
   # Syntax Error handling

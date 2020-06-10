@@ -1,22 +1,46 @@
 require_relative 'visitor'
 require_relative 'runtime_error'
-
+require_relative 'stmt/stmt'
 module Lox
   class Interpreter
     include Lox::Visitor
+    include Lox::Stmt::Visitor
 
     # Public API
-    # Takes a syntax tree for an expression and evaluates it
-    # Converts that to a string  and shows it to the user
+    # Takes a list of statements--in other words, a program
+    # And execute them
     # Report the run time errors and to user and continue
-    def interpret(expression)
-      # value is ruby object
-      value = evaluate(expression)
-      p stringify(value)
+    def interpret(statements)
+      statements.each do |statement|
+        execute(statement)
+      end
     rescue Lox::RuntimeError => error
       Lox.runtime_error(error)
       # puts error
     end
+
+    # stmt analogue to the evaluate() for expressions
+    def execute(stmt)
+      stmt.accept(self)
+    end
+
+    ## Statements
+    # Unlike expressions, statements produce no value
+
+    # Evaluates inner expression and discards its value
+    def visit_expression_stmt(stmt)
+      evaluate(stmt.expr)
+      nil
+    end
+
+    # Dump the value to stdout
+    def visit_print_stmt(stmt)
+      value = evaluate(stmt.expr)
+      puts stringify(value)
+      nil
+    end
+
+    ## Expressions
 
     # Convert literal tree node into a runtime value
     def visit_literal_expr(expr)

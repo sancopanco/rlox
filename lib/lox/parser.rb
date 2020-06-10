@@ -25,6 +25,7 @@
 # Report as many distinct errors as there are
 # Minimize cascaded errors
 require_relative 'expression'
+require_relative 'stmt/stmt'
 
 module Lox
   class Parser
@@ -33,17 +34,47 @@ module Lox
       @current = 0
     end
 
+    # A program is a list of statements, we parse series of of statements,
+    # as many as we can find until it hits the end of the input
+    # program -> statement* EOF ;
+    # Translation of `program` rule into recursive descent style
+    # produce statement syntax trees
     def parse
-      expression
-    rescue ParseError
-      nil
+      statements = []
+      statements << statement until at_end?
+      statements
     end
 
     private
 
     class ParseError < StandardError; end
 
-    # First rule
+    # Statement rule
+    # statement -> exprStmt | printStmt ;
+    def statement
+      return print_statement if match(TokenType::PRINT)
+      expression_statement
+    end
+
+    # Eeach satement type gets its own method
+    # printStmt -> "print" expression ";" ;
+    # It parses the subsequent expression, consumes the terminating semicolon,
+    # and emits the syntax tree
+    def print_statement
+      value = expression
+      consume(TokenType::SEMICOLON, "Expect ';' after value.")
+      Lox::Stmt::Print.new(value)
+    end
+
+    # exprStmt -> expression ";" ;
+    def expression_statement
+      expr = expression
+      consume(TokenType::SEMICOLON, "Expect ';' after value.")
+      Lox::Stmt::Expression.new(expr)
+    end
+
+    # Expression rule
+    # expression → equality ;
     def expression
       equality
     end
