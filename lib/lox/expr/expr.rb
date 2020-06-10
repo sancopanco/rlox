@@ -24,5 +24,6 @@ module Lox
     require_relative 'binary'
     require_relative 'unary'
     require_relative 'grouping'
+    require_relative 'variable'
   end
 end

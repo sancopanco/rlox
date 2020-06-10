@@ -34,20 +34,43 @@ module Lox
       @current = 0
     end
 
-    # A program is a list of statements, we parse series of of statements,
+    # A program is a list of declaration/statements, we parse series of of statements,
     # as many as we can find until it hits the end of the input
-    # program -> statement* EOF ;
+    # program -> declaration* EOF ;
     # Translation of `program` rule into recursive descent style
     # produce statement syntax trees
     def parse
       statements = []
-      statements << statement until at_end?
+      statements << declaration until at_end?
       statements
     end
 
     private
 
     class ParseError < StandardError; end
+
+    # declaration -> varDecl | statement
+    def declaration
+      return var_declaration if match(TokenType::VAR)
+      statement
+    rescue ParseError
+      # error recovery when the parser goes into panic mode
+      # get it back to trying to parse the begining of the next statement/declaration
+      synchronize
+      nil
+    end
+
+    # varDecl -> "var" IDENTIFIER ("=" expression)? ";" ;
+    # Consume identifer token for the variable name,
+    # it parses initializer expr if there is one
+    # returns Stmt:Var syntax tree node
+    def var_declaration
+      var_name = consume(TokenType::IDENTIFIER, 'Expect variable name.')
+      initializer = nil
+      initializer = expression if match(TokenType::EQUAL)
+      consume(TokenType::SEMICOLON, "Expect ';' after variable declaration")
+      Stmt::Var.new(var_name, initializer)
+    end
 
     # Statement rule
     # statement -> exprStmt | printStmt ;
@@ -154,12 +177,16 @@ module Lox
     end
 
     # highest precedence
-    # primary -> NUMBER | STRING | "false" | "true" | "nil" | "(" expression ")" ;
+    # primary -> NUMBER | STRING | "false" | "true" | "nil"
+    # | "(" expression ")" | IDENTIFIER ;
     def primary
       return Expr::Literal.new(false) if match(TokenType::FALSE)
       return Expr::Literal.new(true) if match(TokenType::TRUE)
       return Expr::Literal.new(nil) if match(TokenType::NIL)
       return Expr::Literal.new(previous.literal) if match(TokenType::NUMBER, TokenType::STRING)
+
+      # Variable expressions
+      return Expr::Variable.new(previous) if match(TokenType::IDENTIFIER)
 
       if match(TokenType::LEFT_PAREN)
         expr = expression

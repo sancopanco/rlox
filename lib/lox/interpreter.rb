@@ -1,10 +1,16 @@
 require_relative 'runtime_error'
 require_relative 'stmt/stmt'
 require_relative 'expr/expr'
+require_relative 'environment'
 module Lox
   class Interpreter
     include Lox::Expr::Visitor
     include Lox::Stmt::Visitor
+
+    def initialize
+      # variables stay in memory as long as the interpreter is running
+      @environment = Lox::Environment.new
+    end
 
     # Public API
     # Takes a list of statements--in other words, a program
@@ -40,6 +46,17 @@ module Lox
       nil
     end
 
+    # Declaration statements
+    # If the variable has initializer, evaluate it
+    # If not, set the value nil
+    # Tell the environment bind the name to that value
+    def visit_var_stmt(stmt)
+      value = nil
+      value = evaluate(stmt.initializer) if stmt.initializer
+      environment.define(stmt.name.lexeme, value)
+      nil
+    end
+
     ## Expressions
 
     # Convert literal tree node into a runtime value
@@ -69,6 +86,12 @@ module Lox
       end
 
       nil
+    end
+
+    # Evaluate a variable expression
+    # forwards to the environment--does the heavy lifting to make sure it's defined
+    def visit_variable_expr(expr)
+      environment.get(expr.name)
     end
 
     # Evaluating binary operator
@@ -130,6 +153,8 @@ module Lox
     end
 
     private
+
+    attr_reader :environment
 
     def check_number_operand(operator, operand)
       return if operand.is_a?(Numeric)

@@ -15,5 +15,6 @@ module Lox
 
     require_relative 'print'
     require_relative 'expression'
+    require_relative 'var'
   end
 end
