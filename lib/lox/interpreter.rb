@@ -9,6 +9,7 @@ module Lox
 
     def initialize
       # variables stay in memory as long as the interpreter is running
+      # represents the current environment
       @environment = Lox::Environment.new
     end
 
@@ -33,9 +34,26 @@ module Lox
     ## Statements
     # Unlike expressions, statements produce no value
 
+    # To execute a block, we create a new environment for the block's scope
+    def visit_block_stmt(stmt)
+      execute_block(stmt.statements, Environment.new(environment))
+    end
+
     # Evaluates inner expression and discards its value
     def visit_expression_stmt(stmt)
       evaluate(stmt.expr)
+      nil
+    end
+
+    # Evaluates the condition, if it's truthy, it executes the then branch
+    # Otherwise, if there is an else branch, it executes that
+    def visit_if_stmt(stmt)
+      if truthy?(evaluate(stmt.condition))
+        execute(stmt.then_branch)
+      elsif !stmt.else_branch.nil?
+        execute(stmt.else_branch)
+      end
+
       nil
     end
 
@@ -57,7 +75,15 @@ module Lox
       nil
     end
 
-    ## Expressions
+    ## Expressions semantics
+
+    # I evaluates the right hand side to get the value,
+    # then stores it in a named variable
+    def visit_assign_expr(expr)
+      value = evaluate(expr.value)
+      environment.assign(expr.name, value)
+      value
+    end
 
     # Convert literal tree node into a runtime value
     def visit_literal_expr(expr)
@@ -154,7 +180,7 @@ module Lox
 
     private
 
-    attr_reader :environment
+    attr_accessor :environment
 
     def check_number_operand(operator, operand)
       return if operand.is_a?(Numeric)
@@ -190,6 +216,18 @@ module Lox
       end
       # otherwise ruby string represenation
       obj.to_s
+    end
+
+    # It executes a list of statements in the context of given environment
+    # Restore the previous environment, gets restored even if an exception is thrown
+    def execute_block(statements, new_environment)
+      previous = environment
+      self.environment = new_environment
+      statements.each do |statement|
+        execute(statement)
+      end
+    ensure
+      self.environment = previous
     end
   end
 end

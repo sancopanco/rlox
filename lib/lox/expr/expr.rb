@@ -25,5 +25,6 @@ module Lox
     require_relative 'unary'
     require_relative 'grouping'
     require_relative 'variable'
+    require_relative 'assign'
   end
 end

@@ -1,7 +1,8 @@
 
 ## Expression grammer
 
-# expression     → equality ;
+# expression     → assignment ;
+# assignment -> IDENTIFIER "=" assignment | equality ;
 # equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 # comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
 # addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
@@ -73,10 +74,34 @@ module Lox
     end
 
     # Statement rule
-    # statement -> exprStmt | printStmt ;
+    # statement -> exprStmt | ifStmt | printStmt | block ;
     def statement
+      return if_statement if match(TokenType::IF)
       return print_statement if match(TokenType::PRINT)
+      return Stmt::Block.new(block) if match(TokenType::LEFT_BRACE)
       expression_statement
+    end
+
+    # ifStmt -> "if" "(" expression ")" statement ("else" statement)? ;
+    # Execute the statement if the condition is truthy
+    def if_statement
+      consume(TokenType::LEFT_PAREN, "Expext '(' after 'if'.")
+      condition = expression
+      consume(TokenType::RIGHT_PAREN, "Expect ')' after if condition.")
+
+      then_branch = statement
+      else_branch = nil
+      else_branch = statement if match(TokenType::ELSE)
+      Stmt::If.new(condition, then_branch, else_branch)
+    end
+
+    # A block statement is a seris of declaration or statements surrounded by "}"
+    # block -> "{" declaration* "}"
+    def block
+      statements = []
+      statements << declaration while !check(TokenType::RIGHT_BRACE) && !at_end?
+      consume(TokenType::RIGHT_BRACE, "Expect '}' after block")
+      statements
     end
 
     # Eeach satement type gets its own method
@@ -97,9 +122,29 @@ module Lox
     end
 
     # Expression rule
-    # expression → equality ;
+    # expresssoin -> assignment; -- lowest precedence expression form
     def expression
-      equality
+      assignment
+    end
+
+    # Assignment rule
+    # assignment -> IDENTIFER "=" assignment | equality ;
+    # assignment is right-associative
+    def assignment
+      expr = equality
+
+      if match(TokenType::EQUAL)
+        equals = previous
+        value = assignment
+
+        if expr.is_a?(Lox::Expr::Variable)
+          name = expr.name
+          return Expr::Assign.new(name, value)
+        end
+        error(equals, 'Invalid assignment target.')
+      end
+
+      expr
     end
 
     # comparison > equality -- presedence
