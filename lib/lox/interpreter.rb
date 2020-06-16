@@ -75,6 +75,11 @@ module Lox
       nil
     end
 
+    def visit_while_stmt(stmt)
+      execute(stmt.body_stmt) while truthy?(evaluate(stmt.condition_expr))
+      nil
+    end
+
     ## Expressions semantics
 
     # I evaluates the right hand side to get the value,
@@ -88,6 +93,22 @@ module Lox
     # Convert literal tree node into a runtime value
     def visit_literal_expr(expr)
       expr.value
+    end
+
+    # Evaluate the left operand first, look at its value to see if can short circuit
+    # If not, and only then, do evaluate the right operand
+    # Logical operator merely guarantees it will return a value with appropriate truthiness
+    # Instead of promising to literally return `true` or `false`
+    def visit_logical_expr(expr)
+      left = evaluate(expr.left_expr)
+
+      if expr.operator.type == TokenType::OR
+        return left if truthy?(left)
+      else
+        return left unless truthy?(left)
+      end
+
+      evaluate(expr.right_expr)
     end
 
     # Recursively evaluate subexpression and return it

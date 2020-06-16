@@ -2,7 +2,9 @@
 ## Expression grammer
 
 # expression     → assignment ;
-# assignment -> IDENTIFIER "=" assignment | equality ;
+# assignment -> IDENTIFIER "=" assignment | equality  | logical_or ;
+# logical_or -> logical_and ("or" logical_and)* ;
+# logical_and -> equality ("and" equality)* ;
 # equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 # comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
 # addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
@@ -73,13 +75,35 @@ module Lox
       Stmt::Var.new(var_name, initializer)
     end
 
+    # region Statement Rules
+
     # Statement rule
-    # statement -> exprStmt | ifStmt | printStmt | block ;
+    # statement -> exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
     def statement
+      # detect and match the leading keyword
       return if_statement if match(TokenType::IF)
       return print_statement if match(TokenType::PRINT)
+      return while_statement if match(TokenType::WHILE)
+      return for_statement if match(TokenType::FOR)
       return Stmt::Block.new(block) if match(TokenType::LEFT_BRACE)
       expression_statement
+    end
+
+    # exprStmt -> expression ";" ;
+    def expression_statement
+      expr = expression
+      consume(TokenType::SEMICOLON, "Expect ';' after value.")
+      Lox::Stmt::Expression.new(expr)
+    end
+
+    # Eeach satement type gets its own method
+    # printStmt -> "print" expression ";" ;
+    # It parses the subsequent expression, consumes the terminating semicolon,
+    # and emits the syntax tree
+    def print_statement
+      value = expression
+      consume(TokenType::SEMICOLON, "Expect ';' after value.")
+      Lox::Stmt::Print.new(value)
     end
 
     # ifStmt -> "if" "(" expression ")" statement ("else" statement)? ;
@@ -95,6 +119,71 @@ module Lox
       Stmt::If.new(condition, then_branch, else_branch)
     end
 
+    # whileStmt -> "while" "(" expression ")" statement ;
+    def while_statement
+      consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.")
+      condition_expr = expression
+      consume(TokenType::RIGHT_PAREN, "Expect ')' after 'while'.")
+      body_stmt = statement
+      Stmt::While.new(condition_expr, body_stmt)
+    end
+
+    # forStmt -> "for" "("  ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+    # The first clause is initializer. It executed only once, brefore anything else
+    # It is usually an expression, also allow variable declaration. In that case, the variable is
+    # is scoped to the rest of the for loop
+    # Next is the condition
+    # The last clause is the increment
+    # Use while primitive statement
+    def for_statement
+      consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.")
+      puts 'for_statement'
+      # initializer statement clause
+      initializer_stmt = if match(TokenType::SEMICOLON)
+                           nil
+                         elsif match(TokenType::VAR)
+                           var_declaration
+                         else
+                           expression_statement
+                         end
+      puts initializer_stmt.to_s
+      # Loop condition expression
+      condition_expr = nil
+      # look for semicolon to see if the clause has been omitted
+      condition_expr = expression unless check(TokenType::SEMICOLON)
+      consume(TokenType::SEMICOLON, "Expect ';' after loop condition.")
+
+      # Increment expresion
+      increment = nil
+      increment = expression unless check(TokenType::RIGHT_PAREN)
+      consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.")
+
+      # Body statement
+      body = statement
+
+      # desugaring
+
+      # The increment, if there is one, executes after the body in each iteration
+      # We do that by replacing the body with a block contains the original body
+      # followed by increment expression statement
+      unless increment.nil?
+        body = Stmt::Block.new([body, Stmt::Expression.new(increment)])
+      end
+
+      # Take the condition expression and body and build the loop using a primitive while loop
+      # If the condition expresion is ommited, we jam in `true` to make an infinite loop
+      condition_expr = Expr::Literal.new(true) if condition_expr.nil?
+      body = Stmt::While.new(condition_expr, body)
+
+      # If there is an initializer, it runs once before the entire loop
+      # Replace the whole statement with block that runs initializer and the executes the loop
+      unless initializer_stmt.nil?
+        body = Stmt::Block.new([initializer_stmt, body])
+      end
+
+      body
+    end
+
     # A block statement is a seris of declaration or statements surrounded by "}"
     # block -> "{" declaration* "}"
     def block
@@ -104,22 +193,7 @@ module Lox
       statements
     end
 
-    # Eeach satement type gets its own method
-    # printStmt -> "print" expression ";" ;
-    # It parses the subsequent expression, consumes the terminating semicolon,
-    # and emits the syntax tree
-    def print_statement
-      value = expression
-      consume(TokenType::SEMICOLON, "Expect ';' after value.")
-      Lox::Stmt::Print.new(value)
-    end
-
-    # exprStmt -> expression ";" ;
-    def expression_statement
-      expr = expression
-      consume(TokenType::SEMICOLON, "Expect ';' after value.")
-      Lox::Stmt::Expression.new(expr)
-    end
+    # region Expression Rules
 
     # Expression rule
     # expresssoin -> assignment; -- lowest precedence expression form
@@ -128,10 +202,10 @@ module Lox
     end
 
     # Assignment rule
-    # assignment -> IDENTIFER "=" assignment | equality ;
+    # assignment -> IDENTIFER "=" assignment | logical_or ;
     # assignment is right-associative
     def assignment
-      expr = equality
+      expr = logical_or
 
       if match(TokenType::EQUAL)
         equals = previous
@@ -147,10 +221,37 @@ module Lox
       expr
     end
 
+    # logical_or -> logical_and ( "or" logical_and )* ;
+    # lower precedence then logical `and`
+    def logical_or
+      expr = logical_and
+
+      while match(TokenType::OR)
+        operator = previous
+        right_expr = logical_and
+        expr = Expr::Logical.new(expr, operator, right_expr)
+      end
+
+      expr
+    end
+
+    # logical_and -> equality ("and" equality)* ;
+    def logical_and
+      expr = equality
+
+      while match(TokenType::AND)
+        operator = previous
+        right_expr = equality
+        expr = Expr::Logical.new(expr, operator, right_expr)
+      end
+
+      expr
+    end
+
     # comparison > equality -- presedence
     # equality -> comparison ( ("!=" | "==") comparison )* ;
     # matches an equality operator or anything of higher precedence
-    # left-associates
+    # left-associates, has higher precedence than logical operator `and` and `or`
     def equality
       expr = comparison
       # creates left-associative nested-tree of of binary operator nodes
@@ -244,6 +345,8 @@ module Lox
       # it eventually hits here, it means we're sitting on a token that can not start an expression
       raise error(peek, 'Expect expression.')
     end
+
+    # endregion
 
     def consume(token_type, message)
       # check to see if the next_token is of the expected type. If so, it consumes it

@@ -26,5 +26,6 @@ module Lox
     require_relative 'grouping'
     require_relative 'variable'
     require_relative 'assign'
+    require_relative 'logical'
   end
 end

@@ -18,5 +18,6 @@ module Lox
     require_relative 'var'
     require_relative 'block'
     require_relative 'if'
+    require_relative 'while'
   end
 end
