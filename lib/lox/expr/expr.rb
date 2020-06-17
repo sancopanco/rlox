@@ -27,5 +27,6 @@ module Lox
     require_relative 'variable'
     require_relative 'assign'
     require_relative 'logical'
+    require_relative 'function_call'
   end
 end

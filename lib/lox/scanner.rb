@@ -202,7 +202,8 @@ module Lox
         'super' => TokenType::SUPER,
         'return' => TokenType::RETURN,
         'print' => TokenType::PRINT,
-        'or' => TokenType::OR
+        'or' => TokenType::OR,
+        'fun' => TokenType::FUN
       }
     end
 

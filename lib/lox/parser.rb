@@ -52,9 +52,11 @@ module Lox
 
     class ParseError < StandardError; end
 
-    # declaration -> varDecl | statement
+    # declaration -> funDecl | varDecl | statement
+    # Like all statements declarations are recognized by the leading keyword -- match and comsume
     def declaration
       return var_declaration if match(TokenType::VAR)
+      return function_declaration('function') if match(TokenType::FUN)
       statement
     rescue ParseError
       # error recovery when the parser goes into panic mode
@@ -75,14 +77,52 @@ module Lox
       Stmt::Var.new(var_name, initializer)
     end
 
+    # funDecl -> "fun" function ;
+    # function -> IDENTIFIER "(" parameters? ")" block ;
+    # parameters -> IDENTIFIER ("," IDENTIFIER)* ;
+    # Function declarations, like variables, bind a name
+    # Each parameter is an identifier, not an expression
+    # kind `method` or `function`
+    # function declerations are allowed anywhere a name can be bound
+    def function_declaration(kind)
+      puts 'function decleration'
+      # consume identifier token for the function's name
+      name = consume(TokenType::IDENTIFIER, "Expect #{kind} name.")
+
+      # Parameter list and the pair of parens wrapped around it
+      consume(TokenType::LEFT_PAREN, "Expect after #{kind} name.")
+      parameters = []
+      unless check(TokenType::RIGHT_PAREN) # zero param case
+        # parses parameters as long as we find commas to seperate them
+        loop do
+          if parameters.size > 255
+            error(peek, 'Cannot have mor than 255 parameters.')
+          end
+          parameters << consume(TokenType::IDENTIFIER, 'Expect parameter name.')
+          break unless match(TokenType::COMMA)
+        end
+      end
+      consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.")
+
+      # Parse body
+      # we consume the { at the beginning of the body here before calling block().
+      # That’s because block() assumes that token has already been matched.
+      consume(TokenType::LEFT_BRACE, "Expect before #{kind} body.")
+      body = block
+
+      # Wrap it all up in a function node
+      Stmt::Function.new(name, parameters, body)
+    end
+
     # region Statement Rules
 
     # Statement rule
-    # statement -> exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
+    # statement -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
     def statement
       # detect and match the leading keyword
       return if_statement if match(TokenType::IF)
       return print_statement if match(TokenType::PRINT)
+      return return_statement if match(TokenType::RETURN)
       return while_statement if match(TokenType::WHILE)
       return for_statement if match(TokenType::FOR)
       return Stmt::Block.new(block) if match(TokenType::LEFT_BRACE)
@@ -106,9 +146,28 @@ module Lox
       Lox::Stmt::Print.new(value)
     end
 
+    # Getting results back out in functions
+    # If it was an expression-oriented languaga like ruby, scheme, body would be an
+    # expression whose value is implicitly the function's result
+    # But here the body of a function is list of statements which don't produce value
+    # Every function must return something, there are no void functions in dynamically typed lang
+    # returnStmt -> "return" expression? ";" ;
+    def return_statement
+      keyword = previous
+
+      value = nil
+      # semi colon can't occur in an expression
+      value = expression unless check(TokenType::SEMICOLON)
+
+      consume(TokenType::SEMICOLON, "Expect ';' after return value")
+
+      Stmt::Return.new(keyword, value)
+    end
+
     # ifStmt -> "if" "(" expression ")" statement ("else" statement)? ;
     # Execute the statement if the condition is truthy
     def if_statement
+      print 'if statement'
       consume(TokenType::LEFT_PAREN, "Expext '(' after 'if'.")
       condition = expression
       consume(TokenType::RIGHT_PAREN, "Expect ')' after if condition.")
@@ -146,7 +205,7 @@ module Lox
                          else
                            expression_statement
                          end
-      puts initializer_stmt.to_s
+
       # Loop condition expression
       condition_expr = nil
       # look for semicolon to see if the clause has been omitted
@@ -311,7 +370,7 @@ module Lox
     end
 
     # unary > multiplication -- precedence
-    # unary -> ("!" | "-") unary | primary
+    # unary -> ("!" | "-") unary | function_call
     # right-associates
     def unary
       if match(TokenType::BANG, TokenType::MINUS)
@@ -319,12 +378,52 @@ module Lox
         right = unary
         return Unary.new(operator, right)
       end
-      primary
+      function_call
+    end
+
+    # function_call > unary -- precedence
+    # function_call -> primary ("(" arguments ")") * ;
+    # arguments -> expression ("," expression) * ;
+    # The name of the function being called isn't actually part of the call syntax
+    # The thing being called -- callee -- can be any expresssion that evaluates to a function
+    # ex f(a)(b)(c) -- currying
+    # It is the parentheses following an expressiont that indicate a function call
+    # Can be thought of as an postfix operator starts with `(`
+    def function_call
+      #  a primary expression, the “left operand” to the call
+      expr = primary
+
+      # Each time you see a `(` we call finish_function_call to
+      # parse call expression using the previously parse expr as an the callee
+      loop do
+        break unless match(TokenType::LEFT_PAREN)
+        expr = finish_function_call(expr)
+      end
+
+      expr
+    end
+
+    def finish_function_call(callee_expr)
+      arguments = []
+      unless check(TokenType::RIGHT_PAREN) # zero-argument case
+        loop do
+          # Upper limit for argument number
+          if arguments.size >= 255
+            error(peek, 'Can not have more than 255 arguments')
+          end
+
+          arguments << expression
+          # argument list is done, if cant find comma
+          break unless match(TokenType::COMMA)
+        end
+      end
+
+      paren = consume(TokenType::RIGHT_PAREN, "Expect ')' after arguments")
+      Expr::FunctionCall.new(callee_expr, paren, arguments)
     end
 
     # highest precedence
-    # primary -> NUMBER | STRING | "false" | "true" | "nil"
-    # | "(" expression ")" | IDENTIFIER ;
+    # primary -> NUMBER | STRING | "false" | "true" | "nil" | "(" expression ")" | IDENTIFIER ;
     def primary
       return Expr::Literal.new(false) if match(TokenType::FALSE)
       return Expr::Literal.new(true) if match(TokenType::TRUE)

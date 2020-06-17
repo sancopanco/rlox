@@ -38,7 +38,7 @@ module Lox
       return values[name_token.lexeme] if values.key?(name_token.lexeme)
       # walk the chain
       return enclosing.get(name_token) unless enclosing.nil?
-      raise RuntimeError.new(name_token, "Undefined variable #{name.lexeme} .")
+      raise RuntimeError.new(name_token, "Undefined variable #{name_token.lexeme} .")
     end
 
     # Assignment

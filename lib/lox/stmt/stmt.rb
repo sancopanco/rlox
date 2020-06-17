@@ -19,5 +19,7 @@ module Lox
     require_relative 'block'
     require_relative 'if'
     require_relative 'while'
+    require_relative 'function'
+    require_relative 'return'
   end
 end

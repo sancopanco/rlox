@@ -2,15 +2,24 @@ require_relative 'runtime_error'
 require_relative 'stmt/stmt'
 require_relative 'expr/expr'
 require_relative 'environment'
+require_relative 'callable'
+require_relative 'function'
+require_relative 'return'
 module Lox
   class Interpreter
     include Lox::Expr::Visitor
     include Lox::Stmt::Visitor
 
+    attr_reader :globals
+
     def initialize
       # variables stay in memory as long as the interpreter is running
-      # represents the current environment
-      @environment = Lox::Environment.new
+
+      # holds a fixed reference to outermost global environment
+      @globals = Lox::Environment.new
+      # represents and tracks the current environment -- changes as we enter and exit local scopes
+      @environment = @globals
+      add_native_functions
     end
 
     # Public API
@@ -45,6 +54,21 @@ module Lox
       nil
     end
 
+    # We take a function syntax node, stmt -- a compile time representation of the function
+    # And convert it to  its runtime representation -- here Function class wraps the synax node, stmt
+    # Function declerations are different from other literal node in that the decleration also
+    # binds the resulting object to a new variable
+    # We create a new binding in the current environment and store a reference to it there
+    # When we create a Function, we capture the current environment
+    # This is the environment that is active when the function is **declared** not when it's **called**
+    # It represents the lexical scope surrounding the function declaration
+    def visit_function_decleration_stmt(stmt)
+      function = Function.new(stmt, environment)
+      environment.define(stmt.name.lexeme, function)
+
+      nil
+    end
+
     # Evaluates the condition, if it's truthy, it executes the then branch
     # Otherwise, if there is an else branch, it executes that
     def visit_if_stmt(stmt)
@@ -62,6 +86,14 @@ module Lox
       value = evaluate(stmt.expr)
       puts stringify(value)
       nil
+    end
+
+    # If we have a return value expr, we evaluate it, otherwise, use nil - default return value
+    # Take that value and wrap it in s custom exception class and throw it
+    def visit_return_stmt(stmt)
+      value = nil
+      value = evaluate(stmt.value) unless stmt.value.nil?
+      raise Return, value
     end
 
     # Declaration statements
@@ -199,9 +231,70 @@ module Lox
       nil
     end
 
+    # Evaluating function calls
+    def visit_function_call_expr(expr)
+      # Evaluate the calle expr. Typically, this expression is just an identifier
+      # that looks up the function by its name, but it could be anything
+      callee = evaluate(expr.callee)
+
+      # Evaluate each of the argument expressions in order
+      arguments = []
+      expr.arguments.each do |argument|
+        arguments << evaluate(argument)
+      end
+
+      # what happens if the callee isn't something you can not call -- like string
+      unless callee.is_a?(Callable)
+        raise RuntimeError.new(expr.paren_token, 'can only call functions and classes')
+      end
+
+      function = callee
+
+      # Checking arity
+      unless function.arity == arguments.size
+        raise RuntimeError.new(expr.paren_token,
+                               "Expected #{function.arity} arguments but got #{arguments.size} .")
+      end
+
+      # Once we've got the callee and the arguments ready, perform the call
+
+      function.call(self, arguments)
+    end
+
+    # It executes a list of statements in the context of given environment
+    # Restore the previous environment, gets restored even if an exception is thrown
+    def execute_block(statements, new_environment)
+      previous = environment
+      self.environment = new_environment
+      statements.each do |statement|
+        execute(statement)
+      end
+    ensure
+      self.environment = previous
+    end
+
     private
 
     attr_accessor :environment
+
+    # Stuff native functions in global scope
+    def add_native_functions
+      globals.define('clock', Class.new do
+        include Callable
+
+        def arity
+          0
+        end
+
+        def call(_inpterpreter, _arguments)
+          Time.now.to_f * 1000.0
+        end
+
+        def to_s
+          'native <fn>'
+        end
+      end)
+    end
 
     def check_number_operand(operator, operand)
       return if operand.is_a?(Numeric)
@@ -237,18 +330,6 @@ module Lox
       end
       # otherwise ruby string represenation
       obj.to_s
-    end
-
-    # It executes a list of statements in the context of given environment
-    # Restore the previous environment, gets restored even if an exception is thrown
-    def execute_block(statements, new_environment)
-      previous = environment
-      self.environment = new_environment
-      statements.each do |statement|
-        execute(statement)
-      end
-    ensure
-      self.environment = previous
     end
   end
 end
