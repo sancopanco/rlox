@@ -6,6 +6,7 @@ require_relative 'lox/token'
 require_relative 'lox/scanner'
 require_relative 'lox/parser'
 require_relative 'lox/interpreter'
+require_relative 'lox/resolver'
 
 module Lox
   # to ensure that we don't try to execute code that has a known error
@@ -70,6 +71,18 @@ module Lox
     statements = parser.parse
 
     # Stop if there is a syntax error
+    # Don't run resolver or interpreter if there is a syntax error
+    return if @had_error
+
+    # Do semantic analysis pass after parser does its magic
+    # Helps users catch bugs early before running their code
+    # has a reference to the interpreter
+    # and pokes the resolution data directly into it as it walks over the variables
+    # So before running the interpreter, it has everthing it needs
+    resolver = Resolver.new(interpreter)
+    resolver.resolve(statements)
+
+    # Skip the interpreter if there is a resolution errors --  code has semantic errors
     return if @had_error
 
     # ASTPrinter.new.print(expression)

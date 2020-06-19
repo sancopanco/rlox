@@ -19,6 +19,11 @@ module Lox
       @globals = Lox::Environment.new
       # represents and tracks the current environment -- changes as we enter and exit local scopes
       @environment = @globals
+
+      # map: <Expr, Integer>
+      # Associates each syntax tree node with its resolved data
+      @locals = {}
+
       add_native_functions
     end
 
@@ -38,6 +43,13 @@ module Lox
     # stmt analogue to the evaluate() for expressions
     def execute(stmt)
       stmt.accept(self)
+    end
+
+    # depth: this corresponds to the number of environments  between
+    # the current one and the enclosing one where the interpreter can find the variable's value
+    # Resolver hands that number to the interpreter
+    def resolve(expr, depth)
+      locals[expr] = depth
     end
 
     ## Statements
@@ -114,12 +126,14 @@ module Lox
 
     ## Expressions semantics
 
-    # I evaluates the right hand side to get the value,
-    # then stores it in a named variable
+    # It evaluates the right hand side to get the value
+    # We look up the variable's scope distance, if not found we assume it's global and assign name with avlue
+    # Otherwise, It walks a fixed number(distance) of environments, and then stuffs the new value in that env - map
     def visit_assign_expr(expr)
       value = evaluate(expr.value)
-      environment.assign(expr.name, value)
-      value
+      distance = locals[expr]
+      environment.assign_at(distance, expr.name, value) if distance
+      globals.assign(expr.name, value)
     end
 
     # Convert literal tree node into a runtime value
@@ -170,7 +184,17 @@ module Lox
     # Evaluate a variable expression
     # forwards to the environment--does the heavy lifting to make sure it's defined
     def visit_variable_expr(expr)
-      environment.get(expr.name)
+      lookup_variable(expr.name, expr)
+    end
+
+    # Lookup the resolved distance in the map -- we only resolved local variables
+    # If we don't find the distance in the map, it must be global -- lookup,dynamically,in the global env
+    # That throws a runtime error if the variable isn't defined
+    # If we did get a distance, we have a local variable,and we get to take advantage of the results of static analysis
+    def lookup_variable(name, expr)
+      distance = locals[expr]
+      environment.get_at(distance, name.lexeme) unless distance.nil?
+      globals.get(name)
     end
 
     # Evaluating binary operator
@@ -276,6 +300,7 @@ module Lox
     private
 
     attr_accessor :environment
+    attr_reader :locals
 
     # Stuff native functions in global scope
     def add_native_functions

@@ -3,6 +3,7 @@ module Lox
   # keys are variable names, and the values are the variable's values
   class Environment
     attr_reader :enclosing
+    attr_accessor :values
 
     def initialize(enclosing = nil)
       # to store the bindings
@@ -23,6 +24,26 @@ module Lox
       values[name] = value
     end
 
+    # We know exaclty which environment in the chain will have the variable -- through the distance param
+    # Once we have that environment, return the value of the variable in that environment's map
+    # We know it will be there because the resolver already found it before
+    def get_at(distance, name)
+      ancestor(distance).values[name]
+    end
+
+    # Walks a fixed number of environment, an then stuffs the new value in that map
+    def assign_at(distance, name, value)
+      ancestor(distance).values[name.lexeme] = value
+    end
+
+    # Walks a fixed number(distance) of hops up the parent chain and returns the environment there
+    def ancestor(distance)
+      environment = self
+      0.upto(distance - 1).each { environment = environment.enclosing }
+      environment
+    end
+
+    # Dynamically walks the chain of enclosing environments, looking up each one to see the variable is there
     # Once a variable exists, we need a way to look it up
     # If the variable is found, it returns the value bound to it
     # if not, report a runtime error
@@ -58,9 +79,5 @@ module Lox
       end
       raise RuntimeError.new(name, "Undefined variable #{name.lexeme} .")
     end
-
-    private
-
-    attr_accessor :values
   end
 end

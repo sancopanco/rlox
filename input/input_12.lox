@@ -1,0 +1,2 @@
+// Semantic error
+return "at top level";
