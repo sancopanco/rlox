@@ -1,0 +1,29 @@
+class Box {}
+
+fun notMethod(argument) {
+  print "called function with " + argument;
+}
+
+var box = Box();
+box.function = notMethod;
+box.function("argument");
+
+
+var m = box.function;
+m(argument);
+
+class Person {
+  sayName() {
+    print this.name;
+  }
+}
+
+var jane = Person();
+jane.name = "Jane";
+
+var bill = Person();
+bill.name = "Bill";
+
+//Equivalent code in Lua and JavaScript would print “Bill”.
+bill.sayName = jane.sayName;
+bill.sayName(); // ?

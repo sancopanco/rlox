@@ -8,6 +8,13 @@ module Lox
     module FunctionType
       NONE = 'none'.freeze
       FUNCTION = 'function'.freeze
+      METHOD = 'method'.freeze
+      INITIALIZER = 'initializer'.freeze
+    end
+
+    module ClassType
+      NONE = 'none'.freeze
+      CLASS = 'class'.freeze
     end
 
     def initialize(interpreter)
@@ -15,6 +22,10 @@ module Lox
 
       # Tracks whether or not the current code is inside a function decleration
       @current_function = FunctionType::NONE
+
+      # Tels us if we're currently inside a class while traversing the syntax tree
+      # It starts out with `NONE` which means we are not in one
+      @current_class = ClassType::NONE
 
       # Keeps track of stack of scopes
       # Each element is a hash representing a single block scope
@@ -29,6 +40,38 @@ module Lox
       begin_scope
       resolve(block_stmt.statements)
       end_scope
+
+      nil
+    end
+
+    # Resolve a class definition
+    # Iterate through the methods in class body to resolve them
+    # In a class decleration we call them methods
+    def visit_class_stmt(class_stmt)
+      # keep track the prev value if one class nests inside another
+      enclosing_class = current_class
+      self.current_class = ClassType::CLASS
+
+      declare(class_stmt.name)
+      define(class_stmt.name)
+
+      # Before we step in and start resolving the method bodies, we push a new scope
+      # and define 'this' in it as if it were a variable. Then, when're done, we discard it -- end_scope
+      # The resolver has a new scope for this, so the interpreter needs to create a corresponding environment for it.
+      # We always have to keep the resolver’s scope chains and the interpreter’s linked environments in sync with each other
+      begin_scope
+      scopes.last['this'] = true
+
+      class_stmt.method_stmts.each do |method_stmt|
+        decleration = FunctionType::METHOD
+        decleration = FunctionType::INITIALIZER if method_stmt.name.lexeme == 'init' # check if it's an initializer
+        resolve_function(method_stmt, decleration)
+      end
+
+      end_scope # discard
+
+      # Once the methods have been resolved, 'pop' the stack by storing the old value
+      self.current_class = enclosing_class
 
       nil
     end
@@ -53,13 +96,22 @@ module Lox
       nil
     end
 
+    # Make it static error  -- returning from top-level, not inside a function or method
+    # Make it static error -- user-written initializers(init method) doesn't return value
     def visit_return_stmt(stmt)
       # whether or not we're inside a function decleration, check before resolving return statement
       if current_function == FunctionType::NONE
         Lox.error(stmt.keyword, 'Cannot return from top-level code.')
       end
 
-      resolve_expr(stmt.value) if stmt.value
+      if stmt.value
+        if current_function == FunctionType::INITIALIZER
+          Lox.error(stmt.keyword, 'Cannot return a value from an initializer.')
+        end
+
+        resolve_expr(stmt.value)
+      end
+
       nil
     end
 
@@ -134,6 +186,14 @@ module Lox
       nil
     end
 
+    # Since properties are looked up dynamically, they don't get resolved
+    # During resolution, we only resolve the expr to the left of the dot.
+    # Actual propert access happens in interpreter -- Runtime
+    def visit_get_expr(expr)
+      resolve_expr(expr.object_expr) # instance o
+      nil
+    end
+
     #
     def visit_grouping_expr(expr)
       resolve_expr(expr.expr)
@@ -152,6 +212,28 @@ module Lox
       nil
     end
 
+    # Like Expr::Get, the property itself is dynamically evaluated -- runtime
+    # We only need to do is recurse into the two subexpressions of Expr.Set,
+    # the object whose property is being set, and the value it’s being set to.
+    def visit_set_expr(expr)
+      resolve_expr(expr.value_expr)
+      resolve_expr(expr.object_expr)
+      nil
+    end
+
+    # Resolve like any other local variable using 'this' as the name for the variable
+    # Report an error if the expression doesn't occur nestled inside a method body
+    # Saves us from having to handle misuse at runtime in the interpreter as detecting this statically
+    def visit_this_expr(expr)
+      if current_class == ClassType::NONE
+        Lox.error(expr.keyword, "Cannot use 'this' outside of a class.")
+        return nil
+      end
+
+      resolve_local(expr, expr.keyword)
+      nil
+    end
+
     # Resolve its one operand
     def visit_unary_expr(expr)
       resolve(expr.right_expr)
@@ -165,7 +247,7 @@ module Lox
 
     private
 
-    attr_accessor :scopes, :current_function
+    attr_accessor :scopes, :current_function, :current_class
     attr_reader :interpreter
 
     # Lexical scope bost nest in interpreter and resolver. They behave like a **stack**
@@ -223,7 +305,7 @@ module Lox
       # has local functions, so you can nest function declarations arbitrarily deeply.
       # We need to keep track not just that we’re in a function, but how many we’re in
       enclosing_function = current_function
-      current_function = function_type
+      self.current_function = function_type
 
       begin_scope
       function_stmt.params.each do |param|
@@ -233,7 +315,7 @@ module Lox
       resolve(function_stmt.body)
       end_scope
 
-      current_function = enclosing_function
+      self.current_function = enclosing_function
     end
 
     def resolve_stmt(stmt)

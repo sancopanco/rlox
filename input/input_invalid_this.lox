@@ -1,0 +1,7 @@
+// detect this error statically
+
+print this;
+
+fun notAMethod() {
+  print this;
+}

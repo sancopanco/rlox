@@ -1,0 +1,8 @@
+//That is actually kind of useful sometimes, so we don’t want to disallow it entirely.
+// Instead, it should return this instead of nil
+
+class Foo {
+  init() {
+    return;
+  }
+}

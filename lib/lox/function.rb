@@ -3,12 +3,16 @@ module Lox
   class Function
     include Callable
 
-    attr_reader :function_declaration, :closure
+    attr_reader :function_declaration, :closure, :is_initializer
 
-    def initialize(function_declaration, closure)
-      @function_declaration = function_declaration
+    def initialize(function_declaration, closure, is_initializer)
       # Closure being set during the function decleration
       @closure = closure
+
+      # Whether the LoxFunction represents an initializer method
+      @is_initializer = is_initializer
+
+      @function_declaration = function_declaration
     end
 
     def call(interpreter, arguments)
@@ -36,14 +40,33 @@ module Lox
       begin
         interpreter.execute_block(function_declaration.body, environment)
       rescue Return => return_value
+        # Edge case -- returnin from an initializer
+        # If we're in an initalizer and execute an return statement, instead of returnineg a value
+        # we again return this
+        return closure.get_at(0, 'this') if is_initializer
         return return_value.value
       end
+
+      # Edge case -- object is calling `init` method directly
+      # If the function is initializer, we override actual return and forcibly return `this`
+      return closure.get_at(0, 'this') if is_initializer
 
       nil
     end
 
     def arity
       function_declaration.params.size
+    end
+
+    # Create a new environment nested inside method's original closure
+    # When the method is called, that will become the parent of the method body's environment
+    # We declare 'this' as a variable in that environment and bind it to given instance,
+    # the instance that the method is being accessed from
+    # Return new LoxFunction object carries around its own little persistent world where 'this' is bound to the instance object
+    def bind(lox_instance)
+      environment = Environment.new(closure)
+      environment.define('this', lox_instance)
+      self.class.new(decleration, environment, is_initializer)
     end
 
     # If user prints a functio value

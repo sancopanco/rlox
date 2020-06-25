@@ -52,10 +52,11 @@ module Lox
 
     class ParseError < StandardError; end
 
-    # declaration -> funDecl | varDecl | statement
+    # declaration -> classDecl | funDecl | varDecl | statement ;
     # Like all statements declarations are recognized by the leading keyword -- match and comsume
     def declaration
       return var_declaration if match(TokenType::VAR)
+      return class_decleration if match(TokenType::CLASS)
       return function_declaration('function') if match(TokenType::FUN)
       statement
     rescue ParseError
@@ -63,6 +64,25 @@ module Lox
       # get it back to trying to parse the begining of the next statement/declaration
       synchronize
       nil
+    end
+
+    # classDecl -> "class" IDENTIFIER "{" function* "}" ;
+    # function -> IDENTIFIER "(" parameters? ")" block ;
+    # parameters -> IDENTIFIER ("," IDENTIFIER)* ;
+    # A class can appear anywhere a named decleration is allowed, triggered by the leading keyword "class"
+    def class_decleration
+      name = consume(TokenType::IDENTIFIER, 'Expect class name.')
+      consume(TokenType::LEFT_BRACE, "Expect '{' before class body.")
+
+      # parsing method declerations
+      methods = []
+      while !check(TokenType::RIGHT_BRACE) && !at_end?
+        methods << function_declaration('method')
+      end
+
+      consume(TokenType::RIGHT_BRACE, "Expect '}' after class body.")
+
+      Stmt::LoxClass.new(name, methods)
     end
 
     # varDecl -> "var" IDENTIFIER ("=" expression)? ";" ;
@@ -261,18 +281,25 @@ module Lox
     end
 
     # Assignment rule
-    # assignment -> IDENTIFER "=" assignment | logical_or ;
+    # Extend the rule for assignment to allow dotted identifiers on the left-hand side
+    # Ex: someObject.someProperty.someProperty2 = value;
+    # assignment -> ( call "." )? IDENTIFER "=" assignment | logical_or ;
     # assignment is right-associative
     def assignment
       expr = logical_or
 
       if match(TokenType::EQUAL)
         equals = previous
-        value = assignment
+        value = assignment # value expr
 
         if expr.is_a?(Lox::Expr::Variable)
           name = expr.name
           return Expr::Assign.new(name, value)
+        elsif expr is_a?(Lox::Expr::Get)
+          # TODO: Look at it
+          # turning an Expr.Get expression on the left into the corresponding Expr.Set ?
+          get_expr = expr
+          return Expr::Set.new(get_expr.object_expr, get_expr.name, value)
         end
         error(equals, 'Invalid assignment target.')
       end
@@ -382,7 +409,8 @@ module Lox
     end
 
     # function_call > unary -- precedence
-    # function_call -> primary ("(" arguments ")") * ;
+    # function_call -> primary ("(" arguments ")" | "." IDENTIFIER ) * ;
+    # "." IDENTIFIER is property access expression - get expression -- high precedence as function call expr
     # arguments -> expression ("," expression) * ;
     # The name of the function being called isn't actually part of the call syntax
     # The thing being called -- callee -- can be any expresssion that evaluates to a function
@@ -395,9 +423,16 @@ module Lox
 
       # Each time you see a `(` we call finish_function_call to
       # parse call expression using the previously parse expr as an the callee
+      # Build up a chain of calls and gets as we find the parens and dots
       loop do
-        break unless match(TokenType::LEFT_PAREN)
-        expr = finish_function_call(expr)
+        if match(TokenType::LEFT_PAREN) # calls
+          expr = finish_function_call(expr)
+        elsif match(TokenType::DOT) # property gets
+          name = consume(TokenType::IDENTIFIER, "Expect property name after '.' .")
+          expr = Expr::Get.new(expr, name)
+        else
+          break
+        end
       end
 
       expr
@@ -429,6 +464,9 @@ module Lox
       return Expr::Literal.new(true) if match(TokenType::TRUE)
       return Expr::Literal.new(nil) if match(TokenType::NIL)
       return Expr::Literal.new(previous.literal) if match(TokenType::NUMBER, TokenType::STRING)
+
+      # Reserved word this
+      return Expr::This.new(previous) if match(TokenType::THIS)
 
       # Variable expressions
       return Expr::Variable.new(previous) if match(TokenType::IDENTIFIER)

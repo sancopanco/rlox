@@ -21,5 +21,6 @@ module Lox
     require_relative 'while'
     require_relative 'function'
     require_relative 'return'
+    require_relative 'lox_class'
   end
 end

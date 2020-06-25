@@ -5,6 +5,8 @@ require_relative 'environment'
 require_relative 'callable'
 require_relative 'function'
 require_relative 'return'
+require_relative 'lox_class'
+require_relative 'lox_instance'
 module Lox
   class Interpreter
     include Lox::Expr::Visitor
@@ -52,12 +54,38 @@ module Lox
       locals[expr] = depth
     end
 
-    ## Statements
+    ## Statements Interpretation
     # Unlike expressions, statements produce no value
 
     # To execute a block, we create a new environment for the block's scope
     def visit_block_stmt(stmt)
       execute_block(stmt.statements, Environment.new(environment))
+    end
+
+    # Declera the class's name in the current environment
+    # Turn the class syntax node, its AST, (class_stmt) into a LoxClass, the runtime representation of a class
+    # Store the class object in the variable we previously declared
+    # That two-stage variable binding process allows references to the class inside its own methods.
+    # Each methods decleration will be turned into Runtime LoxFunction as well
+    def visit_class_stmt(class_stmt)
+      puts ['class_stmts', class_stmt, class_stmt.method_stmts].inspect
+      environment.define(class_stmt.name.lexeme, nil)
+
+      methods = {}
+      class_stmt.method_stmts.each do |method_stmt|
+        function = Function.new(method_stmt, environment, method_stmt.name.lexeme == 'init')
+        methods[method_stmt.name.lexeme] = function
+      end
+
+      puts "methods:#{methods}"
+
+      klass = Lox::LoxClass.new(class_stmt.name.lexeme, methods)
+
+      puts "klass method table:#{klass.methods_table}"
+
+      environment.assign(class_stmt.name, klass)
+
+      nil
     end
 
     # Evaluates inner expression and discards its value
@@ -75,7 +103,7 @@ module Lox
     # This is the environment that is active when the function is **declared** not when it's **called**
     # It represents the lexical scope surrounding the function declaration
     def visit_function_decleration_stmt(stmt)
-      function = Function.new(stmt, environment)
+      function = Function.new(stmt, environment, false)
       environment.define(stmt.name.lexeme, function)
 
       nil
@@ -276,13 +304,39 @@ module Lox
 
       # Checking arity
       unless function.arity == arguments.size
-        raise RuntimeError.new(expr.paren_token,
-                               "Expected #{function.arity} arguments but got #{arguments.size} .")
+        raise RuntimeError.new(expr.paren_token, "Expected #{function.arity} arguments but got #{arguments.size} .")
       end
 
       # Once we've got the callee and the arguments ready, perform the call
 
       function.call(self, arguments)
+    end
+
+    # Evaluate the expression whose property is being accessed.
+    # In lox, only instances have props. If the object is some other type like number it is runtime error
+    # If object is a LoxInstance, ask it to look up the property
+    def visit_get_expr(expr)
+      object = evaluate(expr.object_expr)
+      return object.get(expr.name) if object.is_a?(Lox::LoxInstance)
+      raise RuntimeError.new(expr.name, 'Only instances have properties')
+    end
+
+    # We evaluate the object(expr) whose property is being set
+    # Check to see if it's a LoxInstance. If not,that's a runtime error.
+    # Otherwise, evaluate the value(expr) being set and store it on the instance
+    def visit_set_expr(expr)
+      object = evaluate(expr.object_expr)
+      unless object.is_a?(Lox::LoxInstance)
+        raise RuntimeError.new(expr.name, 'Only instances have properties')
+      end
+      value = evaluate(expr.value_expr)
+      object.set(expr.name. value)
+      value
+    end
+
+    # Same as interpresting a variable expression
+    def visit_this_expr(expr)
+      lookup_variable(expr.keyword, expr)
     end
 
     # It executes a list of statements in the context of given environment
