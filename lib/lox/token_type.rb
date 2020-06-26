@@ -37,7 +37,7 @@ module Lox
     FALSE = 'FALSE'.freeze
     FUN = 'FUN'.freeze
     FOR = 'FOR'.freeze
-    IF = 'FUN'.freeze
+    IF = 'IF'.freeze
     NIL = 'NIL'.freeze
     OR = 'OR'.freeze
     PRINT = 'PRINT'.freeze

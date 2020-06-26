@@ -107,7 +107,7 @@ module Lox
     def function_declaration(kind)
       # consume identifier token for the function's name
       name = consume(TokenType::IDENTIFIER, "Expect #{kind} name.")
-
+      puts "[Parse] Function Decleration : #{name}"
       # Parameter list and the pair of parens wrapped around it
       consume(TokenType::LEFT_PAREN, "Expect after #{kind} name.")
       parameters = []
@@ -402,7 +402,7 @@ module Lox
       if match(TokenType::BANG, TokenType::MINUS)
         operator = previous
         right = unary
-        return Unary.new(operator, right)
+        return Expr::Unary.new(operator, right)
       end
       function_call
     end

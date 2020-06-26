@@ -21,7 +21,7 @@ module Lox
       @globals = Lox::Environment.new
       # represents and tracks the current environment -- changes as we enter and exit local scopes
       @environment = @globals
-
+      puts "[Set Interpreter Global Environment] #{@environment.object_id}"
       # map: <Expr, Integer>
       # Associates each syntax tree node with its resolved data
       @locals = {}
@@ -159,7 +159,10 @@ module Lox
     def visit_assign_expr(expr)
       value = evaluate(expr.value)
       distance = locals[expr]
-      environment.assign_at(distance, expr.name, value) if distance
+      if distance
+        environment.assign_at(distance, expr.name, value)
+        return
+      end
       globals.assign(expr.name, value)
     end
 
@@ -220,6 +223,7 @@ module Lox
     # If we did get a distance, we have a local variable,and we get to take advantage of the results of static analysis
     def lookup_variable(name, expr)
       distance = locals[expr]
+      puts "[Lookup Var] #{name}, distance: #{distance}"
       return environment.get_at(distance, name.lexeme) unless distance.nil?
       globals.get(name)
     end

@@ -121,9 +121,9 @@ module Lox
     # A static analysis, in the resolver, analyzes **any branh** that could be run
     # It resolves both since either one could be reached at runtime
     def visit_if_stmt(stmt)
-      resolve(stmt.condition)
-      resolve(stmt.then_branch)
-      resolve(stmt.else_branch) unless stmt.else_branch.nil?
+      resolve_expr(stmt.condition)
+      resolve_stmt(stmt.then_branch)
+      resolve_stmt(stmt.else_branch) unless stmt.else_branch.nil?
       nil
     end
 
@@ -236,7 +236,7 @@ module Lox
 
     # Resolve its one operand
     def visit_unary_expr(expr)
-      resolve(expr.right_expr)
+      resolve_expr(expr.right_expr)
       nil
     end
 

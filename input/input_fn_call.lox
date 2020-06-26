@@ -1,0 +1,8 @@
+fun makeAdd() {
+  var x = 1;
+  var y = 2;
+  return x + y;
+}
+
+var count = makeAdd();
+print count;

@@ -13,7 +13,7 @@ module Lox
       @is_initializer = is_initializer
 
       @function_declaration = function_declaration
-      puts "declare function #{self} closure: #{closure.object_id}"
+      puts "[Declare Function] #{self} closure: #{closure.object_id}"
     end
 
     def call(interpreter, arguments)
@@ -24,7 +24,7 @@ module Lox
       # closure represents the lexical scope surrounding the function decleration,
       # when called it uses that, it uses that environment, instead of globals
       environment = Environment.new(closure)
-
+      puts "[Call Function] #{self} environment:#{environment.object_id} closure: #{closure.object_id}"
       # For eacg pair(parameter, argument), creates a new variable with the parameter's name
       # and binds it to the argument's value
       # Up until now, the current environment was the environmet where the function was being called
