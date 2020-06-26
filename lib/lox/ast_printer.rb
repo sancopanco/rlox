@@ -1,8 +1,10 @@
-require_relative 'visitor'
+require_relative 'stmt/stmt'
+require_relative 'expr/expr'
 module Lox
   # Take in a syntax tree and recursively traverse it, build up a string
   class ASTPrinter
-    include Lox::Visitor
+    include Lox::Expr::Visitor
+    include Lox::Stmt::Visitor
 
     def print(expr)
       expr.accept(self)

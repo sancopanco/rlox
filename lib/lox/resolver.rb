@@ -312,7 +312,8 @@ module Lox
         declare(param)
         define(param)
       end
-      resolve(function_stmt.body)
+      # Function body is block stmt --[ array of stmts]
+      function_stmt.body.each { |stmt| resolve_stmt(stmt) }
       end_scope
 
       self.current_function = enclosing_function

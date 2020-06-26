@@ -13,11 +13,11 @@ module Lox
       @is_initializer = is_initializer
 
       @function_declaration = function_declaration
+      puts "declare function #{self} closure: #{closure.object_id}"
     end
 
     def call(interpreter, arguments)
-      # Each function call gets its own environment -- where it stores parameters
-      # Otherwise, recursion would break
+      # Each function call gets its own environment -- where it stores parameters. Otherwise, recursion would break
       # This environment must be created dynamically
       # If there are multiple calls to the same function in play at the same time,
       # each needs its own environment, even though they all call to the same function
@@ -34,9 +34,8 @@ module Lox
       end
 
       # Tell interpreter to execute the body of the function in this new function-local environment
-      # Once the body of the function has finished executing, `execute_block` discards that function
+      # Once the body of the function has finished executing, `execute_block` discards that function's
       # local environment and restores the previous one that was active before back at the callsite
-
       begin
         interpreter.execute_block(function_declaration.body, environment)
       rescue Return => return_value

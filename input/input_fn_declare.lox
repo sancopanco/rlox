@@ -1,4 +1,4 @@
-print "Function decleration ans call";
+print "Function decleration and call";
 
 fun sayHi(first, last) {
   print "Hi, " + first + " " + last + "!";

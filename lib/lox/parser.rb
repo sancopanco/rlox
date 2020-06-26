@@ -105,7 +105,6 @@ module Lox
     # kind `method` or `function`
     # function declerations are allowed anywhere a name can be bound
     def function_declaration(kind)
-      puts 'function decleration'
       # consume identifier token for the function's name
       name = consume(TokenType::IDENTIFIER, "Expect #{kind} name.")
 

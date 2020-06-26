@@ -65,8 +65,11 @@ module Lox
   end
 
   def run(source)
+    puts '[Start Scanning] -- Lexical Analysis'
     scanner = Lox::Scanner.new(source)
     tokens = scanner.scan_tokens
+
+    puts '[Start Parsing] -- Sementic Analysis'
     parser = Lox::Parser.new(tokens)
     statements = parser.parse
 
@@ -79,13 +82,13 @@ module Lox
     # has a reference to the interpreter
     # and pokes the resolution data directly into it as it walks over the variables
     # So before running the interpreter, it has everthing it needs
+    puts '[Start Resolving] -- Static Analysis'
     resolver = Resolver.new(interpreter)
     resolver.resolve(statements)
 
     # Skip the interpreter if there is a resolution errors --  code has semantic errors
     return if @had_error
-
-    # ASTPrinter.new.print(expression)
+    puts '[Start Interpreting] -- Runtime'
     interpreter.interpret(statements)
   end
 

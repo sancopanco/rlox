@@ -21,7 +21,7 @@ module Lox
     # Scheme allows redefining variables at the top level
     # We'll allow it -- at least for the global variables
     def define(name, value)
-      values[name] = value
+      @values[name] = value
     end
 
     # We know exaclty which environment in the chain will have the variable -- through the distance param

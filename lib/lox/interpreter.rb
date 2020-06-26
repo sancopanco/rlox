@@ -39,7 +39,6 @@ module Lox
       end
     rescue Lox::RuntimeError => error
       Lox.runtime_error(error)
-      # puts error
     end
 
     # stmt analogue to the evaluate() for expressions
@@ -221,7 +220,7 @@ module Lox
     # If we did get a distance, we have a local variable,and we get to take advantage of the results of static analysis
     def lookup_variable(name, expr)
       distance = locals[expr]
-      environment.get_at(distance, name.lexeme) unless distance.nil?
+      return environment.get_at(distance, name.lexeme) unless distance.nil?
       globals.get(name)
     end
 
